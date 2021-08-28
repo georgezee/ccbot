@@ -40,7 +40,8 @@ def message_whois(message, say):
 @app.message("clear")
 def message_clear(message, say):
     # Clear the cache for the whole site.
-    cf = CloudFlare.CloudFlare()
+    cloudflare_key = os.environ.get("CF_API_KEY")
+    cf = CloudFlare.CloudFlare(token=cloudflare_key)
     zones = cf.zones.get(params={'per_page':50})
     for zone in zones:
         zone_name = zone['name']

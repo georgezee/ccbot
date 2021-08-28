@@ -18,6 +18,7 @@ provider:
   environment:
     SLACK_SIGNING_SECRET: ${env:SLACK_SIGNING_SECRET}
     SLACK_BOT_TOKEN: ${env:SLACK_BOT_TOKEN}
+    CF_API_KEY: ${env:CF_API_KEY}
     USERS_TABLE: ${self:custom.tableName}
 functions:
   slack:
