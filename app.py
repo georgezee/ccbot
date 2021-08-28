@@ -39,6 +39,9 @@ def message_whois(message, say):
 
 @app.message("clear")
 def message_clear(message, say):
+@app.command("/clear")
+def message_clear(ack, respond, command):
+    ack()
     # Clear the cache for the whole site.
     cloudflare_key = os.environ.get("CF_API_KEY")
     cf = CloudFlare.CloudFlare(token=cloudflare_key)
@@ -51,7 +54,7 @@ def message_clear(message, say):
             zone_id,
             data={'purge_everything':True})
     # Inform the user.
-    say(f"Cache being cleared ...")
+    respond(f"Cache being cleared.!! :broom:")
 
 SlackRequestHandler.clear_all_log_handlers()
 logging.basicConfig(format="%(asctime)s %(message)s", level=logging.DEBUG)
