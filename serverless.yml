@@ -3,9 +3,22 @@ frameworkVersion: '2'
 provider:
   name: aws
   runtime: python3.8
+  stage: dev
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+      Resource:
+        - { "Fn::GetAtt": ["UsersDynamoDBTable", "Arn" ] }
   environment:
     SLACK_SIGNING_SECRET: ${env:SLACK_SIGNING_SECRET}
     SLACK_BOT_TOKEN: ${env:SLACK_BOT_TOKEN}
+    USERS_TABLE: ${self:custom.tableName}
 functions:
   slack:
     handler: app.handler
@@ -15,6 +28,24 @@ functions:
           method: post
 plugins:
   - serverless-python-requirements
+resources:
+  Resources:
+    UsersDynamoDBTable:
+      Type: 'AWS::DynamoDB::Table'
+      Properties:
+        AttributeDefinitions:
+          -
+            AttributeName: userId
+            AttributeType: S
+        KeySchema:
+          -
+            AttributeName: userId
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        TableName: ${self:custom.tableName}
 custom:
+  tableName: 'users-table-${self:provider.stage}'
   pythonRequirements:
     dockerizePip: true
