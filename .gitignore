@@ -2,10 +2,18 @@
 /node_modules
 
 # environments
+.env
 .venv
+/venv
+
+# IDE
+/.vscode
 
 # serverless framework
 .serverless
 
 # misc
 .DS_Store
+
+#python
+__pycache__
