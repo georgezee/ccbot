@@ -1,6 +1,6 @@
 import os
-import boto3
 import CloudFlare
+import boto3
 import logging
 from slack_bolt import App
 from slack_bolt.adapter.aws_lambda import SlackRequestHandler
@@ -9,7 +9,18 @@ logging.basicConfig(level=logging.DEBUG)
 
 
 USERS_TABLE = os.environ['USERS_TABLE']
-client = boto3.client('dynamodb')
+IS_OFFLINE = os.environ.get('IS_OFFLINE')
+
+# Run DynamoDB either locally or via AWS.
+if IS_OFFLINE:
+    client = boto3.client(
+        'dynamodb',
+        region_name='localhost',
+        endpoint_url='http://localhost:8000'
+    )
+else:
+    client = boto3.client('dynamodb')
+
 
 # Initializes your app with your bot token
 app = App(

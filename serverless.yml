@@ -29,6 +29,8 @@ functions:
           method: post
 plugins:
   - serverless-python-requirements
+  - serverless-offline
+  - serverless-dynamodb-local
 resources:
   Resources:
     UsersDynamoDBTable:
