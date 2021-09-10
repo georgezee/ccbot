@@ -73,6 +73,29 @@ def message_clear(ack, respond, command):
     respond("Cache being cleared.!! :broom:")
 
 
+def get_domain(url):
+    """ Gets the domain part of a url
+    >>> get_domain("https://www.example.com/some-url")
+    "example.com"
+    """
+
+    urlObj = tldextract.extract(url)
+    return f"{urlObj.domain}.{urlObj.suffix}"
+
+
+def get_zone_id(path):
+    domain = get_domain(path)
+
+    cloudflare_key = os.environ.get("CF_API_KEY")
+    cf = CloudFlare.CloudFlare(token=cloudflare_key)
+    zones = cf.zones.get(params={'per_page': 50})
+    for zone in zones:
+        if domain == zone['name']:
+            return zone['id']
+        # print(zone_id, zone_name)
+    return None
+
+
 SlackRequestHandler.clear_all_log_handlers()
 logging.basicConfig(format="%(asctime)s %(message)s", level=logging.DEBUG)
 
