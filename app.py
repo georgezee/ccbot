@@ -56,7 +56,7 @@ def message_whois(message, say):
 
 
 @app.command("/clear")
-def message_clear(ack, respond, command):
+def command_clear(ack, respond, command):
     ack()
     # Clear the cache for the whole site.
     cloudflare_key = os.environ.get("CF_API_KEY")
@@ -90,6 +90,50 @@ def command_clear_url(ack, respond, command):
 
     if (response == "OK"):
         respond(f"Cache cleared for {pathParam} ! :broom:")
+    else:
+        respond("Invalid command. :sad:")
+
+    return response
+
+
+def user_parse_string(user_string):
+    """
+    Parses user info from the Slack encoded form.
+    >>> user_parse_string("<@U0LPPP5RT|Joe>")
+    ('U0LPPP5RT', 'Joe')
+    """
+    user_id = None
+    user_name = None
+
+    # Strip all the extra bits that pad the info we're looking for.
+    user_string = user_string.lstrip("<")
+    user_string = user_string.lstrip("@")
+    user_string = user_string.rstrip(">")
+    user_parts = user_string.split("|")
+
+    user_id = user_parts[0]
+    user_name = user_parts[1]
+
+    return user_id, user_name
+
+
+@app.command("/cc-add-role")
+def command_add_role(ack, respond, command):
+    """ Slack command to add a role to a user . """
+
+    ack()
+    respond(" ... ... .")
+    params = command["text"].split(" ")
+    role = params[0]
+    user = params[1]
+    user_id, user_name = user_parse_string(user)
+
+    logging.info(f"Adding role: {command['text']}")
+    # Todo: Check if parameters are valid.
+    response = add_role(user_id, user_name, role)
+
+    if (response == "OK"):
+        respond(f"{role} added for {user_name} ! :medal:")
     else:
         respond("Invalid command. :sad:")
 
@@ -185,6 +229,21 @@ def get_user(user_id):
     if not item:
         return {'error': 'User does not exist', 'name': 'Error'}
     return item
+
+
+def add_role(user_id, user_name, role):
+    result = client.put_item(
+        TableName=USERS_TABLE,
+        Item={
+            'userId': {'S': user_id},
+            'name': {'S': user_name},
+            'role': {'S': role}
+        }
+    )
+    if result:
+        return "OK"
+    else:
+        return "ERR"
 
 
 def handler(event, context):
