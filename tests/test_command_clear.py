@@ -17,10 +17,41 @@ def test_message_foo():
 
     app.foo(ack, respond, None)
     assert True
+
+
+@pytest.mark.parametrize(
+    "text,value",
+    [
+        ('https://www.example.com/some-url.htm', 'ERR'),
+        ('https://www.rainfallnet.com/favicon.ico?v=2', 'OK'),
+        ('https://www.rainfallnet.com/favicon.ico?v=2 https://www.rainfallnet.com/static/css/main.7ecd61a4.chunk.css', 'OK'),
+        ('https://www.rainfallnet.com/favicon.ico?v=2 https://www.example.com/other', 'PARTIAL')
+    ]
+)
+def test_command_clear_url(text, value):
+
+    import app
+
+    def ack():
+        pass
+
+    def respond(someString):
+        pass
+
+    command = {
+        'user_id': 'AAA',
+        'user_name': 'George',
+        'text': text,
+    }
+
+    response = app.command_clear_url(ack, respond, command)
+    assert response == value
+
+
 @pytest.mark.parametrize(
     "domain,value",
     [
-        ('https://www.example.com/some-url.htm', 'example.co'),
+        ('https://www.example.com/some-url.htm', 'example.com'),
         ('https://www.example.co.za/some-url.htm', 'example.co.za'),
         ('https://www.example.ch/some-url.htm', 'example.ch'),
         ('https://subdomain.example.ch/some-url.htm', 'example.ch'),
@@ -46,7 +77,6 @@ def test_command_get_domain(domain, value):
     "domain,value",
     [
         ('https://www.rainfallnet.com/some-url.htm', '057e772b6bdc6df38b97c595485b0bc5'),
-        ('https://www.rainfall.com/some-url.htm', None),
         ('https://www.example.com/some-url.htm', None)
     ]
 )

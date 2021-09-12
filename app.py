@@ -73,10 +73,33 @@ def message_clear(ack, respond, command):
     respond("Cache being cleared.!! :broom:")
 
 
+@app.command("/clear-url")
+def command_clear_url(ack, respond, command):
+    """ Slack command to clear the cache for a particular url . """
+
+    ack()
+    respond(" ... . ..")
+
+    pathParam = command["text"]
+    pathDict = pathParam.split(" ")
+
+    user_id = command["user_id"]
+
+    logging.info(f"Clearing for paths: {pathParam}")
+    response = clear_url(pathDict)
+
+    if (response == "OK"):
+        respond(f"Cache cleared for {pathParam} ! :broom:")
+    else:
+        respond("Invalid command. :sad:")
+
+    return response
+
+
 def get_domain(url):
     """ Gets the domain part of a url
     >>> get_domain("https://www.example.com/some-url")
-    "example.com"
+    'example.com'
     """
 
     urlObj = tldextract.extract(url)
@@ -84,20 +107,71 @@ def get_domain(url):
 
 
 def get_zone_id(path):
+    """ Returns the matching Zone ID for a URL"""
     domain = get_domain(path)
 
+    # Todo: Cache zone list for future calls.
     cloudflare_key = os.environ.get("CF_API_KEY")
     cf = CloudFlare.CloudFlare(token=cloudflare_key)
     zones = cf.zones.get(params={'per_page': 50})
     for zone in zones:
+        logging.debug(f"available zone: {zone['id']}:{zone['name']}")
         if domain == zone['name']:
             return zone['id']
-        # print(zone_id, zone_name)
     return None
+
+
+def validate_paths(pathList):
+
+    """
+    Validate a list of paths that has been passed.
+    Separates invalid items.
+
+    """
+
+    newList = []
+    invalidList = []
+
+    # Checks that the domain of all urls match the first one.
+    urlObj = tldextract.extract(pathList[0])
+    firstDomain = f"{urlObj.domain}.{urlObj.suffix}"
+
+    for path in pathList:
+        urlObj = tldextract.extract(path)
+        domain = f"{urlObj.domain}.{urlObj.suffix}"
+        if domain == firstDomain:
+            newList.append(path)
+        else:
+            invalidList.append(path)
+
+    return newList, invalidList
+
+
+def clear_url(pathList):
+
+    path = pathList[0]
+
+    zone_id = get_zone_id(path)
+
+    pathList, errorList = validate_paths(pathList)
+    if zone_id and (len(pathList) > 0):
+        cloudflare_key = os.environ.get("CF_API_KEY")
+        cf = CloudFlare.CloudFlare(token=cloudflare_key)
+        cf.zones.purge_cache.post(
+            zone_id,
+            data={'files': pathList})
+        # Inform the user.
+        if (len(errorList) > 0):
+            return "PARTIAL"
+        else:
+            return "OK"
+    else:
+        return "ERR"
 
 
 SlackRequestHandler.clear_all_log_handlers()
 logging.basicConfig(format="%(asctime)s %(message)s", level=logging.DEBUG)
+logging.getLogger().addHandler(logging.StreamHandler())
 
 
 def get_user(user_id):
