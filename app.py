@@ -4,6 +4,7 @@ import boto3
 import logging
 from slack_bolt import App
 from slack_bolt.adapter.aws_lambda import SlackRequestHandler
+import tldextract
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -84,6 +85,10 @@ def command_clear_url(ack, respond, command):
     pathDict = pathParam.split(" ")
 
     user_id = command["user_id"]
+
+    if check_permission(user_id, command):
+        respond("No permission to do this")
+        return
 
     logging.info(f"Clearing for paths: {pathParam}")
     response = clear_url(pathDict)
@@ -244,6 +249,19 @@ def add_role(user_id, user_name, role):
         return "OK"
     else:
         return "ERR"
+
+
+def check_permission(user_id, command, zone=None):
+    """
+    Check if a particular user has permission to run a particular command.
+    """
+
+    # Initially we just get if a user exists in the DB or not.
+    result = get_user(user_id)
+    if result["name"] == "Error":
+        return False
+    else:
+        return True
 
 
 def handler(event, context):
