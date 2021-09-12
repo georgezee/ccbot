@@ -19,6 +19,27 @@ def test_message_foo():
     assert True
 
 
+def test_command_clear():
+
+    import app
+
+    command = {
+        'user_id': 'U0LPPP5RT',
+        'user_name': 'Joe',
+        'command': '/clear',
+        'text': 'https://www.example.com',
+    }
+
+    def ack():
+        pass
+
+    def respond(someString):
+        pass
+
+    app.command_clear(ack, respond, command)
+    assert True
+
+
 @pytest.mark.parametrize(
     "text,value",
     [
