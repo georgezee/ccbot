@@ -19,18 +19,31 @@ provider:
         - dynamodb:DeleteItem
       Resource:
         - { "Fn::GetAtt": ["UsersDynamoDBTable", "Arn" ] }
+    - Effect: Allow
+      Action:
+        - "s3:*"
+      Resource:
+        - "arn:aws:s3:::oauthinstallation/*"
+        - "arn:aws:s3:::oauthstate/*"
   environment:
     SLACK_SIGNING_SECRET: ${env:SLACK_SIGNING_SECRET}
-    SLACK_BOT_TOKEN: ${env:SLACK_BOT_TOKEN}
+    SLACK_CLIENT_ID: ${env:SLACK_CLIENT_ID}
+    SLACK_CLIENT_SECRET: ${env:SLACK_CLIENT_SECRET}
+    SLACK_SCOPES : "app_mentions:read, commands,chat:write"
+    SLACK_INSTALLATION_S3_BUCKET_NAME :  "oauthinstallation"
+    SLACK_STATE_S3_BUCKET_NAME : "oauthstate"
     CF_API_KEY: ${env:CF_API_KEY}
     USERS_TABLE: ${self:custom.tableName}
 functions:
   slack:
     handler: app.handler
+    timeout: 12
     events:
       - http:
           path: slack/events
           method: post
+      - s3: oauthinstallation
+      - s3: oauthstate
     package:
       include:
         - app.py

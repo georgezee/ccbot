@@ -4,6 +4,7 @@ import boto3
 import logging
 from slack_bolt import App
 from slack_bolt.adapter.aws_lambda import SlackRequestHandler
+from slack_bolt.adapter.aws_lambda.lambda_s3_oauth_flow import LambdaS3OAuthFlow
 import tldextract
 
 logging.basicConfig(level=logging.DEBUG)
@@ -22,12 +23,11 @@ if IS_OFFLINE:
 else:
     client = boto3.client('dynamodb')
 
-
-# Initializes your app with your bot token
+# Initializes your app using OAuth.
 app = App(
-    token=os.environ.get("SLACK_BOT_TOKEN"),
     signing_secret=os.environ.get("SLACK_SIGNING_SECRET"),
-    process_before_response=True
+    process_before_response=True,
+    oauth_flow=LambdaS3OAuthFlow(),
 )
 
 
