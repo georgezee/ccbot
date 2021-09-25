@@ -1,5 +1,7 @@
 import os
 import pytest
+from moto import mock_dynamodb2
+import boto3
 
 # Set the users table variable for testing that is defined in serverless.yml
 os.environ["USERS_TABLE"] = "test_users_table"
@@ -19,7 +21,7 @@ def test_message_foo():
     assert True
 
 
-def test_command_clear():
+def test_command_clear_x():
 
     import app
 
@@ -40,15 +42,51 @@ def test_command_clear():
     assert True
 
 
+@mock_dynamodb2
+def mock_setup_users():
+    USERS_TABLE = os.environ['USERS_TABLE']
+    user_basic = {
+        'userId': 'U0LPPP5RT',
+        'name': 'Joey',
+        'roles': {'basic'}
+    }
+    user_admin = {
+        'userId': 'U0LPPPADM',
+        'name': 'Mike',
+        'roles': {'admin'}
+    }
+
+    dynamodb = boto3.resource('dynamodb')
+    dynamodb.create_table(
+        TableName=USERS_TABLE,
+        KeySchema=[
+            {"AttributeName": "userId", "KeyType": "HASH"},
+        ],
+        AttributeDefinitions=[
+            {"AttributeName": "userId", "AttributeType": "S"},
+        ]
+    )
+    table = dynamodb.Table(USERS_TABLE)
+    # Create a basic user
+    table.put_item(
+        Item=user_basic
+    )
+    # Create an admin user
+    table.put_item(
+        Item=user_admin
+    )
+
+
 @pytest.mark.parametrize(
     "text,value",
     [
         ('https://www.example.com/some-url.htm', 'ERR'),
         ('https://www.rainfallnet.com/favicon.ico?v=2', 'OK'),
-        ('https://www.rainfallnet.com/favicon.ico?v=2 https://www.rainfallnet.com/static/css/main.7ecd61a4.chunk.css', 'OK'),
+        ('https://rainfallnet.com/favicon.ico?v=2 https://rainfallnet.com/static/css/main.7ecd61a4.chunk.css', 'OK'),
         ('https://www.rainfallnet.com/favicon.ico?v=2 https://www.example.com/other', 'PARTIAL')
     ]
 )
+@mock_dynamodb2
 def test_command_clear_url(text, value):
 
     import app
@@ -60,10 +98,14 @@ def test_command_clear_url(text, value):
         pass
 
     command = {
-        'user_id': 'AAA',
-        'user_name': 'George',
+        'user_id': 'U0LPPP5RT',
+        'user_name': 'Joe',
         'text': text,
     }
+
+    app.dynamo_resource = None
+    boto3.setup_default_session()
+    mock_setup_users()
 
     response = app.command_clear_url(ack, respond, command)
     assert response == value
