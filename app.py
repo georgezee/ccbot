@@ -168,6 +168,47 @@ def command_add_role(ack, respond, command):
     return response
 
 
+@app.command("/cc-remove-role")
+def command_remove_role(ack, respond, command):
+    """ Slack command to remove a role from a user . """
+
+    ack()
+    respond(" .. .... .")
+    params = command["text"].split(" ")
+    if (len(params) < 2):
+        respond("Invalid command. :sad: (#481)")
+        response = "ERR"
+        return response
+    role = params[0]
+    user = params[1]
+    user_id, user_name = user_parse_string(user)
+
+    if (user_id == "ERR"):
+        respond("Invalid username. :sad: (#482)")
+        response = "ERR"
+        return response
+
+    if not is_valid_role(role):
+        respond("Invalid role. :sad: (#483)")
+        response = "ERR"
+        return response
+
+    if has_role(user_id, role):
+        logging.info(f"Removing role: {command['text']}")
+        response = remove_role(user_id, user_name, role)
+    else:
+        respond("No matching user + role found. :sad: (#484)")
+        response = "ERR"
+        return response
+
+    if (response == "OK"):
+        respond(f"{role} removed for {user_name} ! :medal:")
+    else:
+        respond("Invalid command. :sad:")
+
+    return response
+
+
 def get_domain(url):
     """ Gets the domain part of a url
     >>> get_domain("https://www.example.com/some-url")
