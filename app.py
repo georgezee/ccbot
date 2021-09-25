@@ -9,19 +9,14 @@ import tldextract
 
 logging.basicConfig(level=logging.DEBUG)
 
-
 USERS_TABLE = os.environ['USERS_TABLE']
-IS_OFFLINE = os.environ.get('IS_OFFLINE')
+dynamo_resource = None
 
-# Run DynamoDB either locally or via AWS.
-if IS_OFFLINE:
-    client = boto3.client(
-        'dynamodb',
-        region_name='localhost',
-        endpoint_url='http://localhost:8000'
-    )
-else:
-    client = boto3.client('dynamodb')
+
+def init_dynamo():
+    global dynamo_resource
+    if dynamo_resource is None:
+        dynamo_resource = boto3.resource("dynamodb")
 
 # Initializes your app using OAuth.
 app = App(
@@ -36,8 +31,9 @@ app = App(
 # https://slack.dev/bolt-python/api-docs/slack_bolt/kwargs_injection/args.html
 @app.message("hello")
 def message_hello(message, say):
+    init_dynamo()
     say(f"Hey there <@{message['user']}>!! :wave:")
-    resp = client.put_item(
+    resp = dynamo_resource.put_item(
         TableName=USERS_TABLE,
         Item={
             'userId': {'S': 'fred01'},
@@ -224,25 +220,33 @@ logging.getLogger().addHandler(logging.StreamHandler())
 
 
 def get_user(user_id):
-    resp = client.get_item(
-        TableName=USERS_TABLE,
+    init_dynamo()
+    table = dynamo_resource.Table(USERS_TABLE)
+
+    resp = table.get_item(
         Key={
-            'userId': {'S': user_id}
+            'userId': user_id
         }
     )
     item = resp.get('Item')
     if not item:
-        return {'error': 'User does not exist', 'name': 'Error'}
+        return "ERR"
     return item
 
 
 def add_role(user_id, user_name, role):
-    result = client.put_item(
-        TableName=USERS_TABLE,
+    # Todo: User should be able to have multiple roles.
+    init_dynamo()
+    print(user_id + "|||" + user_name + "{{{{" + role)
+    roles = get_roles(user_id)
+    if role not in roles:
+        roles.append(role)
+    table = dynamo_resource.Table(USERS_TABLE)
+    result = table.put_item(
         Item={
-            'userId': {'S': user_id},
-            'name': {'S': user_name},
-            'role': {'S': role}
+            'userId': user_id,
+            'name': user_name,
+            'roles': {roles}
         }
     )
     if result:
@@ -258,7 +262,8 @@ def check_permission(user_id, command, zone=None):
 
     # Initially we just get if a user exists in the DB or not.
     result = get_user(user_id)
-    if result["name"] == "Error":
+
+    if result == "ERR":
         return False
     else:
         return True
