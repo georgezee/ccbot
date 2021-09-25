@@ -82,9 +82,11 @@ def command_clear_url(ack, respond, command):
 
     user_id = command["user_id"]
 
-    if check_permission(user_id, command):
+    print("" + user_id + "|-|" + str(command))
+
+    if not check_permission(user_id, command):
         respond("No permission to do this")
-        return
+        return "ERR"
 
     logging.info(f"Clearing for paths: {pathParam}")
     response = clear_url(pathDict)
@@ -112,10 +114,22 @@ def user_parse_string(user_string):
     user_string = user_string.rstrip(">")
     user_parts = user_string.split("|")
 
+    if (len(user_parts) != 2):
+        return "ERR", "ERR"
+
     user_id = user_parts[0]
     user_name = user_parts[1]
 
     return user_id, user_name
+
+
+def is_valid_role(role):
+    # Todo: Move to enum, centrally defined.
+    role_list = ("basic", "admin")
+    if role in role_list:
+        return True
+    else:
+        return False
 
 
 @app.command("/cc-add-role")
@@ -125,12 +139,25 @@ def command_add_role(ack, respond, command):
     ack()
     respond(" ... ... .")
     params = command["text"].split(" ")
+    if (len(params) < 2):
+        respond("Invalid command. :sad: (#481)")
+        response = "ERR"
+        return response
     role = params[0]
     user = params[1]
     user_id, user_name = user_parse_string(user)
 
+    if (user_id == "ERR"):
+        respond("Invalid username. :sad: (#482)")
+        response = "ERR"
+        return response
+
+    if not is_valid_role(role):
+        respond("Invalid role. :sad: (#483)")
+        response = "ERR"
+        return response
+
     logging.info(f"Adding role: {command['text']}")
-    # Todo: Check if parameters are valid.
     response = add_role(user_id, user_name, role)
 
     if (response == "OK"):
@@ -234,6 +261,11 @@ def get_user(user_id):
     return item
 
 
+def get_roles(user_id):
+    # Placeholder function.
+    return []
+
+
 def add_role(user_id, user_name, role):
     # Todo: User should be able to have multiple roles.
     init_dynamo()
@@ -253,6 +285,27 @@ def add_role(user_id, user_name, role):
         return "OK"
     else:
         return "ERR"
+
+
+def has_role(user_id, role):
+    """
+    Returns whether or not a user has a specified role..
+    """
+
+    user = get_user(user_id)
+
+    if user == "ERR":
+        return "ERR"
+
+    if not is_valid_role(role):
+        return "ERR"
+
+    roles = user["roles"]
+
+    if role in roles:
+        return True
+    else:
+        return False
 
 
 def check_permission(user_id, command, zone=None):
