@@ -39,11 +39,12 @@ functions:
     handler: app.handler
     timeout: 12
     events:
+      - httpApi:
+          path: /auth
+          method: ANY
       - http:
-          path: slack/events
-          method: post
-      - s3: oauthinstallation
-      - s3: oauthstate
+          path: /slack/events
+          method: POST
     package:
       include:
         - app.py
