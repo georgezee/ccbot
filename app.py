@@ -180,22 +180,30 @@ def command_remove_role(ack, respond, command):
         response = "ERR"
         return response
     role = params[0]
-    user = params[1]
-    user_id, user_name = user_parse_string(user)
+    user_string = params[1]
+    user_id, user_name = user_parse_string(user_string)
 
     if (user_id == "ERR"):
         respond("Invalid username. :sad: (#482)")
         response = "ERR"
         return response
 
+    # Load the user object.
+    user = get_user(user_id)
+
+    if user == "ERR":
+        return "ERR"
+
+    # Check the role requested to be removed is valid.
     if not is_valid_role(role):
         respond("Invalid role. :sad: (#483)")
         response = "ERR"
         return response
 
-    if has_role(user_id, role):
+    # Check that the role is present on the user.
+    if has_role(user, role):
         logging.info(f"Removing role: {command['text']}")
-        response = remove_role(user_id, user_name, role)
+        response = remove_role(user, role)
     else:
         respond("No matching user + role found. :sad: (#484)")
         response = "ERR"
@@ -314,12 +322,14 @@ def add_role(user_id, user_name, role):
     roles = get_roles(user_id)
     if role not in roles:
         roles.append(role)
+    # Lists are unhashable, convert to tuple.
+    roles = tuple(roles)
     table = dynamo_resource.Table(USERS_TABLE)
     result = table.put_item(
         Item={
             'userId': user_id,
             'name': user_name,
-            'roles': {roles}
+            'roles': (roles)
         }
     )
     if result:
@@ -328,15 +338,39 @@ def add_role(user_id, user_name, role):
         return "ERR"
 
 
-def has_role(user_id, role):
+def save_user(user):
+    """
+    Persist the user to the DB.
+    """
+    init_dynamo()
+    table = dynamo_resource.Table(USERS_TABLE)
+    result = table.put_item(
+        Item=user
+    )
+    if result:
+        return "OK"
+    else:
+        return "ERR"
+
+
+def remove_role(user, role):
+    """
+    Remove a specified role from the user object.
+    """
+    roles_list = list(user["roles"])
+    if role in roles_list:
+        roles_list.remove(role)
+    # Convert back to a tuple so it is hashable.
+    user["roles"] = tuple(roles_list)
+    # Save the user.
+    response = save_user(user)
+    return response
+
+
+def has_role(user, role):
     """
     Returns whether or not a user has a specified role..
     """
-
-    user = get_user(user_id)
-
-    if user == "ERR":
-        return "ERR"
 
     if not is_valid_role(role):
         return "ERR"
