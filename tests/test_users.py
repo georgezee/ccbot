@@ -74,7 +74,13 @@ def test_has_role(user_id, role, value):
     app.dynamo_resource = None
     boto3.setup_default_session()
 
-    response = app.has_role(user_id, role)
+    mocked_user = {
+        'userId': user_id,
+        'name': 'Joey',
+        'roles': {'basic'}
+    }
+
+    response = app.has_role(mocked_user, role)
     assert response == value
 
 
@@ -82,7 +88,7 @@ def test_has_role(user_id, role, value):
     "text,value",
     [
         ('basic <@U0LPPP5RT|Joe>', 'OK'),
-        ('admin <@U0LPPP5RT|Joe>', 'OK'),
+        ('admin <@U0LPPP5RT|Joe>', 'ERR'),
         ('none <@U0LPPP5RT|Joe>', 'ERR'),
         ('basic invalid-user', 'ERR'),
         ('random-text', 'ERR')
@@ -111,9 +117,27 @@ def test_command_remove_role(text, value):
         'text': text,
     }
 
-    app.dynamo_resource = None
-    boto3.setup_default_session()
-    mock_setup_users()
-
     response = app.command_remove_role(ack, respond, command)
     assert response == value
+
+
+@mock_dynamodb2
+def test_remove_role():
+
+    import app
+
+    from test_command_clear import mock_setup_users
+    mock_setup_users()
+    app.dynamo_resource = None
+    boto3.setup_default_session()
+
+    # Confirm the role is present before removing.
+    before_user = app.get_user('U0LPPP5RT')
+    assert "basic" in before_user["roles"]
+
+    # Remove the role.
+    app.remove_role(before_user, 'basic')
+
+    # Confirm the role is no longer present.
+    after_user = app.get_user('U0LPPP5RT')
+    assert "basic" not in after_user["roles"]
