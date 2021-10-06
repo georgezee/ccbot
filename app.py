@@ -94,7 +94,7 @@ def command_clear_url(ack, respond, command):
     if (response == "OK"):
         respond(f"Cache cleared for {pathParam} ! :broom:")
     else:
-        respond("Invalid command. :sad:")
+        respond("Invalid command. :cry:")
 
     return response
 
@@ -140,7 +140,7 @@ def command_add_role(ack, respond, command):
     respond(" ... ... .")
     params = command["text"].split(" ")
     if (len(params) < 2):
-        respond("Invalid command. :sad: (#481)")
+        respond("Invalid command. :cry: (#481)")
         response = "ERR"
         return response
     role = params[0]
@@ -148,22 +148,22 @@ def command_add_role(ack, respond, command):
     user_id, user_name = user_parse_string(user)
 
     if (user_id == "ERR"):
-        respond("Invalid username. :sad: (#482)")
+        respond("Invalid username. :cry: (#482)")
         response = "ERR"
         return response
 
     if not is_valid_role(role):
-        respond("Invalid role. :sad: (#483)")
+        respond("Invalid role. :cry: (#483)")
         response = "ERR"
         return response
 
     logging.info(f"Adding role: {command['text']}")
-    response = add_role(user_id, user_name, role)
+    response = add_role(user_id, role)
 
     if (response == "OK"):
         respond(f"{role} added for {user_name} ! :medal:")
     else:
-        respond("Invalid command. :sad:")
+        respond("Invalid command. :cry:")
 
     return response
 
@@ -174,9 +174,11 @@ def command_remove_role(ack, respond, command):
 
     ack()
     respond(" .. .... .")
+    logging.info("#482")
+    logging.info(str(command))
     params = command["text"].split(" ")
     if (len(params) < 2):
-        respond("Invalid command. :sad: (#481)")
+        respond("Invalid command. :cry: (#481)")
         response = "ERR"
         return response
     role = params[0]
@@ -184,7 +186,7 @@ def command_remove_role(ack, respond, command):
     user_id, user_name = user_parse_string(user_string)
 
     if (user_id == "ERR"):
-        respond("Invalid username. :sad: (#482)")
+        respond("Invalid username. :cry: (#482)")
         response = "ERR"
         return response
 
@@ -196,7 +198,7 @@ def command_remove_role(ack, respond, command):
 
     # Check the role requested to be removed is valid.
     if not is_valid_role(role):
-        respond("Invalid role. :sad: (#483)")
+        respond("Invalid role. :cry: (#483)")
         response = "ERR"
         return response
 
@@ -205,16 +207,72 @@ def command_remove_role(ack, respond, command):
         logging.info(f"Removing role: {command['text']}")
         response = remove_role(user, role)
     else:
-        respond("No matching user + role found. :sad: (#484)")
+        respond("No matching user + role found. :cry: (#484)")
         response = "ERR"
         return response
 
     if (response == "OK"):
         respond(f"{role} removed for {user_name} ! :medal:")
     else:
-        respond("Invalid command. :sad:")
+        respond("Invalid command. :cry:")
 
     return response
+
+@app.command("/cc-user-info")
+def command_user_info(ack, respond, command):
+    """ Slack command to retrieve the information for a specific user. """
+
+    ack()
+    respond(" ... .. .")
+    logging.info("#489")
+    logging.info(str(command))
+    params = command["text"].split(" ")
+    if (len(params) > 1):
+        respond("Invalid command. Use /cc-user-info @user-name  :cry: (#487)")
+        response = "ERR"
+        return response
+    user_string = params[0]
+    user_id, user_name = user_parse_string(user_string)
+
+    if (user_id == "ERR"):
+        respond("Invalid username. :cry: (#482)")
+        response = "ERR"
+        return response
+
+    # Load the user object.
+    user = get_user(user_id)
+
+    if user == "ERR":
+        return "ERR"
+
+    user_info_string = f"*Profile for: {user['name']}* \n "
+    user_info_string += f"Roles: {' '.join(user['roles'])} \n"
+    # user_info_string += "Last used:  \n"
+    response = "OK"
+
+    if (response == "OK"):
+        respond(user_info_string)
+    else:
+        respond("Invalid command. :cry:")
+
+    return response
+
+
+def get_user_by_name(name):
+    init_dynamo()
+    result = None
+    user_id = "U0LPPP5RT"
+    try:
+        # Call the users.info method using the WebClient
+        result = dynamo_resource.users_info(
+            user=user_id
+        )
+        logging.info(result)
+
+    except Error as e:
+        logging.error("Error fetching conversations: {}".format(e))
+
+    return result
 
 
 def get_domain(url):
@@ -390,6 +448,10 @@ def check_permission(user_id, command, zone=None):
 
     # Initially we just get if a user exists in the DB or not.
     result = get_user(user_id)
+
+    # Todo - Check that the user has access to this site.
+
+    # Todo - Check that the user has access to this command.
 
     if result == "ERR":
         return False
