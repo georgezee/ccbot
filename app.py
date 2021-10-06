@@ -368,27 +368,26 @@ def get_user(user_id):
     return item
 
 
-def get_roles(user_id):
-    # Placeholder function.
-    return []
+def get_roles(user):
+    return user["roles"]
 
 
-def add_role(user_id, user_name, role):
-    # Todo: User should be able to have multiple roles.
+def add_role(user_id, role):
+    """ Add a specified role to a user """
     init_dynamo()
-    print(user_id + "|||" + user_name + "{{{{" + role)
-    roles = get_roles(user_id)
+
+    user = get_user(user_id)
+    if user == "ERR":
+        return "ERR"
+
+    roles = get_roles(user)
     if role not in roles:
         roles.append(role)
     # Lists are unhashable, convert to tuple.
     roles = tuple(roles)
     table = dynamo_resource.Table(USERS_TABLE)
     result = table.put_item(
-        Item={
-            'userId': user_id,
-            'name': user_name,
-            'roles': (roles)
-        }
+        Item=user
     )
     if result:
         return "OK"
