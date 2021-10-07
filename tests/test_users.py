@@ -46,8 +46,9 @@ def test_command_add_role(text, value):
         pass
 
     command = {
-        'user_id': 'U0LPPP5RT',
-        'user_name': 'Joe',
+        'user_id': 'U0LPPPADM',
+        'user_name': 'Mike',
+        'command': '/cc-add-role',
         'text': text,
     }
 
@@ -112,8 +113,9 @@ def test_command_remove_role(text, value):
         pass
 
     command = {
-        'user_id': 'U0LPPP5RT',
-        'user_name': 'Joe',
+        'user_id': 'U0LPPPADM',
+        'user_name': 'Mike',
+        'command': '/cc-remove-role',
         'text': text,
     }
 

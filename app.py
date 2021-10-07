@@ -84,7 +84,7 @@ def command_clear_url(ack, respond, command):
 
     print("" + user_id + "|-|" + str(command))
 
-    if not check_permission(user_id, command):
+    if not check_permission(user_id, command["command"]):
         respond("No permission to do this")
         return "ERR"
 
@@ -138,14 +138,21 @@ def command_add_role(ack, respond, command):
 
     ack()
     respond(" ... ... .")
+
+    executing_user_id = command['user_id']
+    # Ensure the user has permissions to do this.
+    if not check_permission(executing_user_id, command["command"]):
+        respond("No permission to do this")
+        return "ERR"
+
     params = command["text"].split(" ")
     if (len(params) < 2):
         respond("Invalid command. :cry: (#481)")
         response = "ERR"
         return response
     role = params[0]
-    user = params[1]
-    user_id, user_name = user_parse_string(user)
+    target_user = params[1]
+    user_id, user_name = user_parse_string(target_user)
 
     if (user_id == "ERR"):
         respond("Invalid username. :cry: (#482)")
@@ -176,14 +183,21 @@ def command_remove_role(ack, respond, command):
     respond(" .. .... .")
     logging.info("#482")
     logging.info(str(command))
+
+    executing_user_id = command['user_id']
+    # Ensure the user has permissions to do this.
+    if not check_permission(executing_user_id, command["command"]):
+        respond("No permission to do this")
+        return "ERR"
+
     params = command["text"].split(" ")
     if (len(params) < 2):
         respond("Invalid command. :cry: (#481)")
         response = "ERR"
         return response
     role = params[0]
-    user_string = params[1]
-    user_id, user_name = user_parse_string(user_string)
+    target_user_string = params[1]
+    user_id, user_name = user_parse_string(target_user_string)
 
     if (user_id == "ERR"):
         respond("Invalid username. :cry: (#482)")
@@ -369,7 +383,10 @@ def get_user(user_id):
 
 
 def get_roles(user):
-    return user["roles"]
+    if user['roles']:
+        return user['roles']
+    else:
+        return list()
 
 
 def add_role(user_id, role):
@@ -444,18 +461,24 @@ def check_permission(user_id, command, zone=None):
     """
     Check if a particular user has permission to run a particular command.
     """
+    # Load the user object.
+    user = get_user(user_id)
 
-    # Initially we just get if a user exists in the DB or not.
-    result = get_user(user_id)
+    if user == "ERR":
+        return False
+
+    if has_role(user, 'admin'):
+        return True
 
     # Todo - Check that the user has access to this site.
 
-    # Todo - Check that the user has access to this command.
+    # For the command to clear specific urls, 'basic' role is sufficient.
+    if command == "/clear-url":
+        if has_role(user, 'basic'):
+            return True
 
-    if result == "ERR":
-        return False
-    else:
-        return True
+    # If we've reached this point without granting access, access is denied.
+    return False
 
 
 def handler(event, context):

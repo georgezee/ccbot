@@ -48,12 +48,12 @@ def mock_setup_users():
     user_basic = {
         'userId': 'U0LPPP5RT',
         'name': 'Joey',
-        'roles': {'basic'}
+        'roles': ['basic']
     }
     user_admin = {
         'userId': 'U0LPPPADM',
         'name': 'Mike',
-        'roles': {'admin'}
+        'roles': ['admin']
     }
 
     dynamodb = boto3.resource('dynamodb')
@@ -100,6 +100,7 @@ def test_command_clear_url(text, value):
     command = {
         'user_id': 'U0LPPP5RT',
         'user_name': 'Joe',
+        'command': '/clear-url',
         'text': text,
     }
 
