@@ -149,3 +149,28 @@ def test_command_get_zone(domain, value):
 
     response = app.get_zone_id(domain)
     assert response == value
+
+
+@pytest.mark.parametrize(
+    "user_id,command,zone,value",
+    [
+        ('U0LPPP5RT', '/clear-url', None, True),
+        ('U0LPPP5RT', '/cc-add-role', None, False),
+        ('U0LPPP5RT', '/cc-remove-role', None, False),
+        ('U0LPPPADM', '/clear-url', None, True),
+        ('U0LPPPADM', '/cc-add-role', None, True),
+        ('U0LPPPADM', '/cc-remove-role', None, True),
+        ('UNUSED', '/cc-remove-role', None, False)
+    ]
+)
+@mock_dynamodb2
+def test_check_permissions(user_id, command, zone, value):
+
+    import app
+    mock_setup_users()
+
+    app.dynamo_resource = None
+    boto3.setup_default_session()
+
+    response = app.check_permission(user_id, command, zone)
+    assert response == value
