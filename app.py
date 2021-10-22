@@ -344,8 +344,19 @@ def clear_url(pathList):
 
     path = pathList[0]
 
+def clear_url(pathList, clear_translations=False, context=None):
+
+    path = pathList[0]
     zone_id = get_zone_id(path)
 
+    # If requested, we also enqueue the linked translations of the page.
+    if clear_translations:
+        for path in pathList:
+            lang_list = get_hreflang_from_url(path)
+            if len(lang_list) > 0:
+                enqueue_clear_url(lang_list, context)
+
+    # Check the paths are valid before proceeding to purge the cache.
     pathList, errorList = validate_paths(pathList)
     if zone_id and (len(pathList) > 0):
         cloudflare_key = os.environ.get("CF_API_KEY")
@@ -479,6 +490,35 @@ def check_permission(user_id, command, zone=None):
 
     # If we've reached this point without granting access, access is denied.
     return False
+
+
+def get_hreflang_from_url(url):
+    """ Fetches the hreflang tags from a particular url."""
+
+    import requests
+    from requests_html import HTMLSession
+
+    hrefs = list()
+
+    try:
+        session = HTMLSession()
+        response = session.get(url)
+        # Look for specific tags, returning the href portion.
+        hrefs = response.html.xpath("//link[@rel='alternate']/@href")
+    except requests.exceptions.RequestException as e:
+        logging.info(f"Error #822: {e}")
+        return hrefs
+
+    # If the urls are relative, then append the base url as per the original.
+    for index, href in enumerate(hrefs):
+        if "http" not in href:
+            # Get base url
+            from urllib.parse import urlparse
+            parsed_uri = urlparse(url)
+            domain = '{uri.scheme}://{uri.netloc}'.format(uri=parsed_uri)
+            hrefs[index] = domain + href
+
+    return hrefs
 
 
 def handler(event, context):
