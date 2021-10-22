@@ -113,6 +113,44 @@ def test_command_clear_url(text, value):
 
 
 @pytest.mark.parametrize(
+    "text,value",
+    [
+        ('https://www.example.com/some-url.htm', 'ERR'),
+        # ('https://rainfallnet.com/favicon.ico?v=2', 'OK')
+        ('https://www.alpadia.com/en/france/lyon-school', 'ERR')
+    ]
+)
+@mock_dynamodb2
+def test_command_clear_url_translations(text, value):
+
+    import app
+
+
+    def ack():
+        pass
+
+    def respond(someString):
+        pass
+
+    command = {
+        'team_id': 'T0LPM5M44',
+        'channel_id': 'C5LTXMLCS',
+        'channel_name': 'unleash',
+        'user_id': 'U0LPPP5RT',
+        'user_name': 'Joe',
+        'command': '/clear-url',
+        'text': text,
+    }
+
+    app.dynamo_resource = None
+    boto3.setup_default_session()
+    mock_setup_users()
+
+    response = app.command_clear_url_translations(ack, respond, command)
+    assert response == value
+
+
+@pytest.mark.parametrize(
     "domain,value",
     [
         ('https://www.example.com/some-url.htm', 'example.com'),
@@ -175,3 +213,19 @@ def test_check_permissions(user_id, command, zone, value):
 
     response = app.check_permission(user_id, command, zone)
     assert response == value
+
+
+@pytest.mark.parametrize(
+    "url,value",
+    [
+        ('https://www.bbc.com/news', 'https://www.bbc.co.uk/news'),
+        ('https://weblate.org/en/', 'https://weblate.org/de/')
+    ]
+)
+def test_get_hreflang(url, value):
+    """ Fetches the hreflang tags from a particular url."""
+
+    import app
+
+    response = app.get_hreflang_from_url(url)
+    assert value in response
