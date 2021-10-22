@@ -23,17 +23,28 @@ provider:
       Action:
         - "s3:*"
       Resource:
-        - "arn:aws:s3:::oauthinstallation/*"
-        - "arn:aws:s3:::oauthstate/*"
+        - "arn:aws:s3:::oauthinstallationv2/*"
+        - "arn:aws:s3:::oauthstatev2/*"
+        - "arn:aws:s3:::oauthinstallationv2"
+        - "arn:aws:s3:::oauthstatev2"
+    - Effect: Allow
+      Action:
+        - SNS:Publish
+      Resource:
+        - "arn:aws:sns:*"
+        - "arn:aws:sts::*"
+        - { "Fn::Join" : ["", ["arn:aws:sns:${self:provider.region}:", { "Ref" : "AWS::AccountId" }, ":${self:custom.purgeTopicName}" ] ]  }
+
   environment:
     SLACK_SIGNING_SECRET: ${env:SLACK_SIGNING_SECRET}
     SLACK_CLIENT_ID: ${env:SLACK_CLIENT_ID}
     SLACK_CLIENT_SECRET: ${env:SLACK_CLIENT_SECRET}
     SLACK_SCOPES : "app_mentions:read, commands,chat:write"
-    SLACK_INSTALLATION_S3_BUCKET_NAME :  "oauthinstallation"
-    SLACK_STATE_S3_BUCKET_NAME : "oauthstate"
+    SLACK_INSTALLATION_S3_BUCKET_NAME :  "oauthinstallationv2"
+    SLACK_STATE_S3_BUCKET_NAME : "oauthstatev2"
     CF_API_KEY: ${env:CF_API_KEY}
     USERS_TABLE: ${self:custom.tableName}
+    PURGE_TOPIC: ${self:custom.snsPurgeTopicArn.${self:provider.stage}}
 functions:
   slack:
     handler: app.handler
@@ -45,6 +56,9 @@ functions:
       - http:
           path: /slack/events
           method: POST
+      - s3: oauthinstallationv2
+      - s3: oauthstatev2
+      - sns: ${self:custom.purgeTopicName}
     package:
       include:
         - app.py
@@ -71,6 +85,14 @@ resources:
         TableName: ${self:custom.tableName}
 custom:
   tableName: 'users-table-${self:provider.stage}'
+  purgeTopicName: "${self:service}-${self:provider.stage}-purge-topic"
+  snsPurgeTopicArn:
+    local:
+      "arn:aws:sns:us-east-1:123456789012:${self:custom.purgeTopicName}"
+    dev:
+      { "Fn::Join" : ["", ["arn:aws:sns:${self:provider.region}:", { "Ref" : "AWS::AccountId" }, ":${self:custom.purgeTopicName}" ] ]  }
+    prod:
+      { "Fn::Join" : ["", ["arn:aws:sns:${self:provider.region}:", { "Ref" : "AWS::AccountId" }, ":${self:custom.purgeTopicName}" ] ]  }
   pythonRequirements:
     dockerizePip: true
 useDotenv: true

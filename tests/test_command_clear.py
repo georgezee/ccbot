@@ -1,10 +1,11 @@
 import os
 import pytest
-from moto import mock_dynamodb2
+from moto import mock_dynamodb2, mock_sns
 import boto3
 
 # Set the users table variable for testing that is defined in serverless.yml
 os.environ["USERS_TABLE"] = "test_users_table"
+os.environ["PURGE_TOPIC"] = ""  # Will be replaced by mocked name once created.
 
 
 def test_message_foo():
@@ -77,6 +78,16 @@ def mock_setup_users():
     )
 
 
+@mock_sns
+def mock_setup_topics():
+    sns = boto3.client("sns", region_name="us-east-1")
+    topic_name = "test_purge_topic"
+    mock_topic = sns.create_topic(Name=topic_name)
+
+    # Set the environment variable to the mocked Topic Arn, for use by the app.
+    os.environ['PURGE_TOPIC'] = mock_topic['TopicArn']
+
+
 @pytest.mark.parametrize(
     "text,value",
     [
@@ -98,6 +109,9 @@ def test_command_clear_url(text, value):
         pass
 
     command = {
+        'team_id': 'T0LPM5M44',
+        'channel_id': 'C5LTXMLCS',
+        'channel_name': 'unleash',
         'user_id': 'U0LPPP5RT',
         'user_name': 'Joe',
         'command': '/clear-url',
@@ -121,10 +135,12 @@ def test_command_clear_url(text, value):
     ]
 )
 @mock_dynamodb2
+@mock_sns
 def test_command_clear_url_translations(text, value):
 
     import app
 
+    mock_setup_topics()
 
     def ack():
         pass

@@ -11,12 +11,20 @@ logging.basicConfig(level=logging.DEBUG)
 
 USERS_TABLE = os.environ['USERS_TABLE']
 dynamo_resource = None
+sns_client = None
 
 
 def init_dynamo():
     global dynamo_resource
     if dynamo_resource is None:
         dynamo_resource = boto3.resource("dynamodb")
+
+
+def init_sns():
+    global sns_client
+    if sns_client is None:
+        sns_client = boto3.client("sns", region_name="us-east-1")
+
 
 # Initializes your app using OAuth.
 app = App(
@@ -80,6 +88,15 @@ def command_clear_url(ack, respond, command):
     pathParam = command["text"]
     pathDict = pathParam.split(" ")
 
+    context = {
+        'channel_id': command["channel_id"],
+        'team_id': command["team_id"],
+        'user_id': command["user_id"],
+        'user_name': command["user_name"],
+        'command': command["command"],
+        'text': command["text"]
+    }
+
     user_id = command["user_id"]
 
     print("" + user_id + "|-|" + str(command))
@@ -89,10 +106,46 @@ def command_clear_url(ack, respond, command):
         return "ERR"
 
     logging.info(f"Clearing for paths: {pathParam}")
-    response = clear_url(pathDict)
+    response = clear_url(pathDict, context=context)
 
     if (response == "OK"):
         respond(f"Cache cleared for {pathParam} ! :broom:")
+    else:
+        respond("Invalid command. :cry:")
+
+    return response
+
+
+@app.command("/clear-translations")
+def command_clear_url_translations(ack, respond, command):
+    """ Slack command to clear the cache for a url and its translations. """
+
+    ack()
+    respond(" . .. ...")
+
+    pathParam = command["text"]
+    pathDict = pathParam.split(" ")
+
+    user_id = command["user_id"]
+
+    context = {
+        'channel_id': command["channel_id"],
+        'team_id': command["team_id"],
+        'user_id': command["user_id"],
+        'user_name': command["user_name"],
+        'command': command["command"],
+        'text': command["text"]
+    }
+
+    if not check_permission(user_id, command["command"]):
+        respond("No permission to do this")
+        return "ERR"
+
+    logging.info(f"Clearing for translated paths: {pathParam}")
+    response = clear_url(pathDict, clear_translations=True, context=context)
+
+    if (response == "OK"):
+        respond(f"Cache cleared (with translations) for {pathParam} ! :broom:")
     else:
         respond("Invalid command. :cry:")
 
@@ -340,9 +393,65 @@ def validate_paths(pathList):
     return newList, invalidList
 
 
-def clear_url(pathList):
+def enqueue_clear_url(url_list, context=None):
 
-    path = pathList[0]
+    init_sns()
+    topic_arn = os.environ.get("PURGE_TOPIC")
+
+    message = {
+        'data': url_list,
+        'context': context
+    }
+
+    print(f"Enqueueing items {url_list}")
+
+    response = sns_client.publish(TopicArn=topic_arn, Message=f"{message}")
+    logging.debug(f"SNS Publish Response: {response}")
+
+    if response["ResponseMetadata"]["HTTPStatusCode"] == 200:
+        return "OK"
+    else:
+        return "ERR"
+
+
+def dequeue_clear_url(event, context):
+    import ast
+
+    logging.info(f"Item dequeued {event}")
+
+    message = event['Records'][0]['Sns']['Message']
+    message_object = ast.literal_eval(message)
+    # Separate the received message into the data and context components.
+    path_list = message_object["data"]
+    context = message_object["context"]
+
+    clear_url(path_list, context=context)
+    return "OK"
+
+
+def message_channel(text, context):
+    channel_id = context["channel_id"]
+    team_id = context["team_id"]
+    # Fetch the auth token from the installation store.
+    bot = app.installation_store.find_bot(enterprise_id=None, team_id=team_id)
+    app.client.chat_postMessage(
+        token=bot.bot_token,
+        channel=channel_id,
+        text=text
+    )
+
+
+def message_user(text, context):
+    channel_id = context["user_id"]
+    team_id = context["team_id"]
+    # Fetch the auth token from the installation store.
+    bot = app.installation_store.find_bot(enterprise_id=None, team_id=team_id)
+    app.client.chat_postMessage(
+        token=bot.bot_token,
+        channel=channel_id,
+        text=text
+    )
+
 
 def clear_url(pathList, clear_translations=False, context=None):
 
@@ -366,10 +475,14 @@ def clear_url(pathList, clear_translations=False, context=None):
             data={'files': pathList})
         # Inform the user.
         if (len(errorList) > 0):
+            message_channel(f"Partial urls cleared: {pathList}", context)
             return "PARTIAL"
         else:
+            message_channel(f"Urls cleared: {pathList}", context)
             return "OK"
     else:
+        message_channel("Couldn't clear urls", context)
+        message_user("Couldn't clear urls", context)
         return "ERR"
 
 
@@ -521,6 +634,21 @@ def get_hreflang_from_url(url):
     return hrefs
 
 
+def is_sns_event(event):
+    # A bit ugly, but prefer this to throw/catch, and can improve later.
+    if 'Records' in event:
+        if 'Sns' in event['Records'][0]:
+            return True
+    return False
+
+
 def handler(event, context):
+    logging.debug("App handler called: {event} | {context}")
+
+    # If this request came via SNS Purge topic, direct to appropriate dequeueing function.
+    if is_sns_event(event):
+        return dequeue_clear_url(event, context)
+
+    # Otherwise this is a request via the API (from a Slack message received).
     slack_handler = SlackRequestHandler(app=app)
     return slack_handler.handle(event, context)
