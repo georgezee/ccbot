@@ -216,6 +216,21 @@ def test_command_get_zone(domain, value):
 
 
 @pytest.mark.parametrize(
+    "zone_id,value",
+    [
+        ('057e772b6bdc6df38b97c595485b0bc5', 'rainfallnet.com'),
+        ('random-text', None)
+    ]
+)
+def test_command_get_zone_name(zone_id, value):
+
+    import app
+
+    response = app.get_zone_name(zone_id)
+    assert response == value
+
+
+@pytest.mark.parametrize(
     "user_id,command,zone,value",
     [
         ('U0LPPP5RT', '/clear-url', None, True),

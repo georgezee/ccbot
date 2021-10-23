@@ -310,6 +310,164 @@ def command_remove_role(ack, respond, command):
 
     return response
 
+
+def get_zones(user):
+    if 'zones' not in user:
+        user['zones'] = list()
+
+    return user['zones']
+
+
+def allow_zone(user_id, zone):
+    """ Allow a specified zone for a user """
+    user = get_user(user_id)
+    if user == "ERR":
+        return "ERR"
+
+    zones = get_zones(user)
+    if zone not in zones:
+        zones.append(zone)
+    # Lists are unhashable, convert to tuple.
+    zones = tuple(zones)
+
+    return save_user(user)
+
+
+def disallow_zone(user, zone):
+    """
+    Remove a specified zone from the user object.
+    """
+    zones_list = list(user["zones"])
+    if zone in zones_list:
+        zones_list.remove(zone)
+    # Convert back to a tuple so it is hashable.
+    user["zones"] = tuple(zones_list)
+    # Save the user.
+    response = save_user(user)
+    return response
+
+
+def allowed_zone(user, zone):
+    """
+    Returns whether or not a user is allowed access to a particular zone.
+    """
+
+    if zone is None:
+        return True
+
+    if "zones" not in user:
+        return False
+
+    zones = user["zones"]
+
+    if zone in zones:
+        return True
+    else:
+        return False
+
+
+@app.command("/cc-allow-zone")
+def command_allow_zone(ack, respond, command):
+    """ Slack command to add permissions for a user to a particular zone. """
+
+    ack()
+    respond(" . ... .. .")
+
+    executing_user_id = command['user_id']
+    # Ensure the user has permissions to do this.
+    if not check_permission(executing_user_id, command["command"]):
+        respond("No permission to do this")
+        return "ERR"
+
+    params = command["text"].split(" ")
+    if (len(params) < 2):
+        respond("Invalid command. :cry: (#481)")
+        response = "ERR"
+        return response
+    target_user = params[0]
+    zone_url = params[1]
+
+    user_id, user_name = user_parse_string(target_user)
+    if (user_id == "ERR"):
+        respond("Invalid username. :cry: (#482)")
+        response = "ERR"
+        return response
+
+    zone = get_zone_id(zone_url)
+    if zone is None:
+        respond("Invalid zone. :cry: (#486)")
+        response = "ERR"
+        return response
+    logging.info(f"Allowing zone: {command['text']}")
+    response = allow_zone(user_id, zone)
+
+    if (response == "OK"):
+        respond(f"{zone} allowed for {user_name} ! :medal:")
+    else:
+        respond("Invalid command. :cry:")
+
+    return response
+
+
+@app.command("/cc-disallow-zone")
+def command_disallow_zone(ack, respond, command):
+    """ Slack command to disallow a zone from a user . """
+
+    ack()
+    respond(" .. .... .")
+    logging.info("#489")
+    logging.info(str(command))
+
+    executing_user_id = command['user_id']
+    # Ensure the user has permissions to do this.
+    if not check_permission(executing_user_id, command["command"]):
+        respond("No permission to do this")
+        return "ERR"
+
+    params = command["text"].split(" ")
+    if (len(params) < 2):
+        respond("Invalid command. :cry: (#481)")
+        response = "ERR"
+        return response
+    target_user_string = params[0]
+    zone_url = params[1]
+    user_id, user_name = user_parse_string(target_user_string)
+
+    if (user_id == "ERR"):
+        respond("Invalid username. :cry: (#482)")
+        response = "ERR"
+        return response
+
+    # Load the user object.
+    user = get_user(user_id)
+
+    if user == "ERR":
+        return "ERR"
+
+    # Check that the zone is valid.
+    zone = get_zone_id(zone_url)
+    if zone is None:
+        respond("Invalid zone. :cry: (#586)")
+        response = "ERR"
+        return response
+
+    # Check that the zone is present on the user.
+    if allowed_zone(user, zone):
+        logging.info(f"Removing zone: {command['text']}")
+        response = disallow_zone(user, zone)
+    else:
+        respond("No matching user + zone found. :cry: (#584)")
+        response = "ERR"
+        return response
+
+    if (response == "OK"):
+        respond(f"{zone} disallowed for {user_name} ! :medal:")
+    else:
+        respond("Invalid command. :cry:")
+
+    return response
+
+
 @app.command("/cc-user-info")
 def command_user_info(ack, respond, command):
     """ Slack command to retrieve the information for a specific user. """
@@ -338,7 +496,15 @@ def command_user_info(ack, respond, command):
         return "ERR"
 
     user_info_string = f"*Profile for: {user['name']}* \n "
-    user_info_string += f"Roles: {' '.join(user['roles'])} \n"
+    if 'roles' in user:
+        user_info_string += f"Roles: {' '.join(user['roles'])} \n"
+    else:
+        user_info_string += "Roles: none \n"
+    if 'zones' in user:
+        user_info_string += f"Zones allowed: {' '.join(user['zones'])} \n"
+        # user_info_string += f"Zones allowed: {' '.join([get_zone_name(zone) for zone in user['zones']])} \n"
+    else:
+        user_info_string += "Zones allowed: none \n"
     # user_info_string += "Last used:  \n"
     response = "OK"
 
@@ -390,9 +556,23 @@ def get_zone_id(path):
     cf = CloudFlare.CloudFlare(token=cloudflare_key)
     zones = cf.zones.get(params={'per_page': 50})
     for zone in zones:
-        logging.debug(f"available zone: {zone['id']}:{zone['name']}")
+        logging.debug(f"available zone: {zone['id']}:{zone['name']} || {domain}")
         if domain == zone['name']:
             return zone['id']
+    return None
+
+
+def get_zone_name(zone_id):
+    """ Returns the matching Zone name for a Zone ID"""
+
+    # Todo: Cache zone list for future calls.
+    cloudflare_key = os.environ.get("CF_API_KEY")
+    cf = CloudFlare.CloudFlare(token=cloudflare_key)
+    zones = cf.zones.get(params={'per_page': 50})
+    for zone in zones:
+        logging.debug(f"zone name: {zone['id']}:{zone['name']}")
+        if zone_id == zone['id']:
+            return zone['name']
     return None
 
 
@@ -497,6 +677,13 @@ def clear_url(pathList, clear_translations=False, context=None):
     # Check the paths are valid before proceeding to purge the cache.
     pathList, errorList = validate_paths(pathList)
     if zone_id and (len(pathList) > 0):
+        # Check that the user has access to a particular zone.
+        logging.info(f"Checking for {context['user_id']} with context {context['command']} in zone {zone_id}")
+        if not check_permission(context["user_id"], context["command"], zone_id):
+            message_user("You don't have permission to clear caches for this site, speak to a CCBot admin.", context)
+            logging.info(f"No permission for {context['user_id']} with context {context['command']} in zone {zone_id}")
+            return "ERR"
+
         cloudflare_key = os.environ.get("CF_API_KEY")
         cf = CloudFlare.CloudFlare(token=cloudflare_key)
         cf.zones.purge_cache.post(
@@ -535,6 +722,9 @@ def get_user(user_id):
     # Check and initialize additional properties if not present.
     if 'roles' not in item:
         item['roles'] = list()
+    if 'zones' not in item:
+        item['zones'] = list()
+
     return item
 
 
@@ -618,12 +808,12 @@ def check_permission(user_id, command, zone=None):
     if has_role(user, 'admin'):
         return True
 
-    # Todo - Check that the user has access to this site.
-
     # For the command to clear specific urls, 'basic' role is sufficient.
     if command == "/clear-url":
         if has_role(user, 'basic'):
-            return True
+            # Check that the user has access to this site.
+            if allowed_zone(user, zone):
+                return True
 
     # If we've reached this point without granting access, access is denied.
     return False
