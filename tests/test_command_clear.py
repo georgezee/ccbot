@@ -254,3 +254,73 @@ def test_get_hreflang(url, value):
 
     response = app.get_hreflang_from_url(url)
     assert value in response
+
+
+def test_sns_dequeue_message():
+    import app
+
+    context = None
+    message = """{'data': ['https://rainfallnet.com/favicon.ico?v=2',
+    'https://rainfallnet.com/static/css/main.7ecd61a4.chunk.css'],
+    'context': {'channel_id': 'C5LTXMLCS',
+    'team_id': 'T0LPM5M44',
+    'user_id': 'U0LPPP5RT',
+    'user_name': 'george',
+    'command': '/clear-translations',
+    'text': 'https://rainfallnet.com/favicon.ico?v=2 https://rainfallnet.com/static/css/main.7ecd61a4.chunk.css'}}"""
+
+    event = {
+        'Records': [{
+            'EventSource': 'aws:sns',
+            'Sns': {
+                'Type': 'Notification',
+                'MessageId': '4a092386-fd3c-5bed-9a5e-7a65b2983c2a',
+                'Subject': None,
+                'Message': message,
+            }
+        }]
+    }
+
+    response = app.dequeue_clear_url(event, context)
+    assert response == "OK"
+
+
+@mock_sns
+def test_sns_send():
+    import app
+    mock_setup_topics()
+
+    app.sns_client = None
+    boto3.setup_default_session()
+
+    url_list = {"https://www.rainfallnet.com"}
+    context = {
+        'team_id': 'T0LPM5M44',
+        'channel_id': 'C5LTXMLCS',
+        'channel_name': 'unleash',
+        'user_id': 'U0LPPP5RT',
+        'user_name': 'george',
+        'command': '/clear',
+        'text': 'https://www.example.com'
+    }
+
+    response = app.enqueue_clear_url(url_list, context)
+    assert response == "OK"
+
+
+@pytest.mark.skip(reason="Still working on how to mock handler")
+def test_app():
+    class Object(object):
+        pass
+
+    # event = {'resource': '/slack/events', 'path': '/slack/events', 'httpMethod': 'POST', 'headers': {'Accept': 'application/json,*/*', 'Accept-Encoding': 'gzip,deflate', 'CloudFront-Forwarded-Proto': 'https', 'CloudFront-Is-Desktop-Viewer': 'true', 'CloudFront-Is-Mobile-Viewer': 'false', 'CloudFront-Is-SmartTV-Viewer': 'false', 'CloudFront-Is-Tablet-Viewer': 'false', 'CloudFront-Viewer-Country': 'US', 'Content-Type': 'application/x-www-form-urlencoded', 'Host': 'r4e5er36ic.execute-api.us-east-1.amazonaws.com', 'User-Agent': 'Slackbot 1.0 (+https://api.slack.com/robots)', 'Via': '1.1 c37f72766931ae9c3f146ffa54018d1c.cloudfront.net (CloudFront)', 'X-Amz-Cf-Id': 'C15-IhK8m05xkAXJfqqBp1abu5OcPxd50QE9mwz3cbpMIW5ljzdk9A==', 'X-Amzn-Trace-Id': 'Root=1-613b76c8-16adc5270355409f0d3a0f11', 'X-Forwarded-For': '3.91.205.26, 70.132.60.79', 'X-Forwarded-Port': '443', 'X-Forwarded-Proto': 'https', 'X-Slack-Request-Timestamp': '1631286984', 'X-Slack-Signature': 'v0=255f3e0e7b818752b462f4e74ba67de4439a1790d95fc3d96d2cc62542979201'}, 'multiValueHeaders': {'Accept': ['application/json,*/*'], 'Accept-Encoding': ['gzip,deflate'], 'CloudFront-Forwarded-Proto': ['https'], 'CloudFront-Is-Desktop-Viewer': ['true'], 'CloudFront-Is-Mobile-Viewer': ['false'], 'CloudFront-Is-SmartTV-Viewer': ['false'], 'CloudFront-Is-Tablet-Viewer': ['false'], 'CloudFront-Viewer-Country': ['US'], 'Content-Type': ['application/x-www-form-urlencoded'], 'Host': ['r4e5er36ic.execute-api.us-east-1.amazonaws.com'], 'User-Agent': ['Slackbot 1.0 (+https://api.slack.com/robots)'], 'Via': ['1.1 c37f72766931ae9c3f146ffa54018d1c.cloudfront.net (CloudFront)'], 'X-Amz-Cf-Id': ['C15-IhK8m05xkAXJfqqBp1abu5OcPxd50QE9mwz3cbpMIW5ljzdk9A=='], 'X-Amzn-Trace-Id': ['Root=1-613b76c8-16adc5270355409f0d3a0f11'], 'X-Forwarded-For': ['3.91.205.26, 70.132.60.79'], 'X-Forwarded-Port': ['443'], 'X-Forwarded-Proto': ['https'], 'X-Slack-Request-Timestamp': ['1631286984'], 'X-Slack-Signature': ['v0=255f3e0e7b818752b462f4e74ba67de4439a1790d95fc3d96d2cc62542979201']}, 'queryStringParameters': None, 'multiValueQueryStringParameters': None, 'pathParameters': None, 'stageVariables': None, 'requestContext': {'resourceId': 'p5qrl6', 'resourcePath': '/slack/events', 'httpMethod': 'POST', 'extendedRequestId': 'Fc9_VH7CoAMFdaQ=', 'requestTime': '10/Sep/2021:15:16:24 +0000',
+    # 'path': '/dev/slack/events', 'accountId': '234815085025', 'protocol': 'HTTP/1.1', 'stage': 'dev', 'domainPrefix': 'r4e5er36ic', 'requestTimeEpoch': 1631286984364, 'requestId': '4fe3f7a4-b567-4945-bd75-e32b416c1a9f', 'identity': {'cognitoIdentityPoolId': None, 'accountId': None, 'cognitoIdentityId': None, 'caller': None, 'sourceIp': '3.91.205.26', 'principalOrgId': None, 'accessKey': None, 'cognitoAuthenticationType': None, 'cognitoAuthenticationProvider': None, 'userArn': None, 'userAgent': 'Slackbot 1.0 (+https://api.slack.com/robots)', 'user': None}, 'domainName': 'r4e5er36ic.execute-api.us-east-1.amazonaws.com', 'apiId': 'r4e5er36ic'},
+    # 'body': 'token=t1a4HBUMvKQjkuv3uENNBiDN&team_id=T0LPM5M44&team_domain=springfisher&channel_id=C5LTXMLCS&channel_name=unleash&user_id=U0LPPP5RT&user_name=george&command=%2Fclear&text=https%3A%2F%2Fwww.abc.com&api_app_id=A02BU03PZLG&is_enterprise_install=false&response_url=https%3A%2F%2Fhooks.slack.com%2Fcommands%2FT0LPM5M44%2F2475061134341%2FCQ2VtwLii2eWD5J6P3dwJK9s&trigger_id=2490694709857.20803191140.7969a97526260405b033d9ac96fcb118', 'isBase64Encoded': False}
+    event = {}
+    context = Object()
+    context.function_name = "test_function"
+
+    import app
+    response = app.handler(event, context)
+    print(response)
+    assert response["statusCode"] != 401
