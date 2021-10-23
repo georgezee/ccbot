@@ -60,7 +60,7 @@ def message_whois(message, say):
 
 
 
-@app.command("/clear")
+@app.command("/clear-site")
 def command_clear(ack, respond, command):
     ack()
     # Clear the cache for the whole site.
@@ -174,6 +174,30 @@ def user_parse_string(user_string):
     user_name = user_parts[1]
 
     return user_id, user_name
+
+
+def link_parse_string(url_string):
+    """
+    Parses link info from the Slack encoded form.
+    >>> link_parse_string("<http://example.com|example.com>")
+    ('http://example.com')
+    """
+    url_link = None
+    url_text = None
+
+    # Strip all the extra bits that pad the info we're looking for.
+    url_string = url_string.lstrip("<")
+    url_string = url_string.lstrip("@")
+    url_string = url_string.rstrip(">")
+    url_parts = url_string.split("|")
+
+    if (len(url_parts) != 2):
+        return "ERR", "ERR"
+
+    url_link = url_parts[0]
+    # If needed: url_text = url_parts[1]
+
+    return url_link
 
 
 def is_valid_role(role):
@@ -348,6 +372,10 @@ def get_domain(url):
     >>> get_domain("https://www.example.com/some-url")
     'example.com'
     """
+
+    # Check if a url has been encoded, and if so, parse accordingly.
+    if url[0] == "<":
+        url = link_parse_string(url)
 
     urlObj = tldextract.extract(url)
     return f"{urlObj.domain}.{urlObj.suffix}"

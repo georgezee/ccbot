@@ -139,8 +139,7 @@ def test_command_clear_url(text, value):
     "text,value",
     [
         ('https://www.example.com/some-url.htm', 'ERR'),
-        # ('https://rainfallnet.com/favicon.ico?v=2', 'OK')
-        ('https://www.alpadia.com/en/france/lyon-school', 'ERR')
+        ('https://rainfallnet.com/favicon.ico?v=2', 'OK')
     ]
 )
 @mock_dynamodb2
@@ -178,6 +177,7 @@ def test_command_clear_url_translations(text, value):
 @pytest.mark.parametrize(
     "domain,value",
     [
+        ('<http://example.com|example.com>', 'example.com'),
         ('https://www.example.com/some-url.htm', 'example.com'),
         ('https://www.example.co.za/some-url.htm', 'example.co.za'),
         ('https://www.example.ch/some-url.htm', 'example.ch'),
