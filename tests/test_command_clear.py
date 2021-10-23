@@ -49,7 +49,12 @@ def mock_setup_users():
     user_basic = {
         'userId': 'U0LPPP5RT',
         'name': 'Joey',
-        'roles': ['basic']
+        'roles': ['basic'],
+        'zones': ['057e772b6bdc6df38b97c595485b0bc5']
+    }
+    user_new = {
+        'userId': 'U0LPPPNEW',
+        'name': 'Newbie'
     }
     user_admin = {
         'userId': 'U0LPPPADM',
@@ -71,6 +76,10 @@ def mock_setup_users():
     # Create a basic user
     table.put_item(
         Item=user_basic
+    )
+    # Create a new user
+    table.put_item(
+        Item=user_new
     )
     # Create an admin user
     table.put_item(

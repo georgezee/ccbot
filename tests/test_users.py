@@ -124,6 +124,37 @@ def test_command_remove_role(text, value):
 
 
 @mock_dynamodb2
+def test_add_role():
+
+    import app
+
+    from test_command_clear import mock_setup_users
+    mock_setup_users()
+    app.dynamo_resource = None
+    boto3.setup_default_session()
+
+    # Testing for a 'basic' user upgrading to 'admin'.
+    # Confirm the role is not present before adding.
+    before_user = app.get_user('U0LPPP5RT')
+    assert "admin" not in before_user["roles"]
+    # Add the role.
+    app.add_role(before_user, 'admin')
+    # Confirm the role is now present.
+    after_user = app.get_user('U0LPPP5RT')
+    assert "admin" in after_user["roles"]
+
+    # Testing for a new user upgrading to 'basic'.
+    # Confirm the role is not present before adding.
+    before_user = app.get_user('U0LPPPNEW')
+    assert "basic" not in before_user["roles"]
+    # Add the role.
+    app.add_role(before_user, 'basic')
+    # Confirm the role is now present.
+    after_user = app.get_user('U0LPPPNEW')
+    assert "basic" in after_user["roles"]
+
+
+@mock_dynamodb2
 def test_remove_role():
 
     import app

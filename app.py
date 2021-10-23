@@ -217,8 +217,9 @@ def command_add_role(ack, respond, command):
         response = "ERR"
         return response
 
+    user = get_user(user_id)
     logging.info(f"Adding role: {command['text']}")
-    response = add_role(user_id, role)
+    response = add_role(user, role)
 
     if (response == "OK"):
         respond(f"{role} added for {user_name} ! :medal:")
@@ -336,7 +337,7 @@ def get_user_by_name(name):
         )
         logging.info(result)
 
-    except Error as e:
+    except Exception as e:
         logging.error("Error fetching conversations: {}".format(e))
 
     return result
@@ -481,8 +482,7 @@ def clear_url(pathList, clear_translations=False, context=None):
             message_channel(f"Urls cleared: {pathList}", context)
             return "OK"
     else:
-        message_channel("Couldn't clear urls", context)
-        message_user("Couldn't clear urls", context)
+        message_channel(f"Couldn't clear urls: {pathList}", context)
         return "ERR"
 
 
@@ -503,37 +503,30 @@ def get_user(user_id):
     item = resp.get('Item')
     if not item:
         return "ERR"
+
+    # Check and initialize additional properties if not present.
+    if 'roles' not in item:
+        item['roles'] = list()
     return item
 
 
 def get_roles(user):
-    if user['roles']:
-        return user['roles']
-    else:
-        return list()
+    if 'roles' not in user:
+        user['roles'] = list()
+
+    return user['roles']
 
 
-def add_role(user_id, role):
+def add_role(user, role):
     """ Add a specified role to a user """
-    init_dynamo()
-
-    user = get_user(user_id)
-    if user == "ERR":
-        return "ERR"
-
     roles = get_roles(user)
     if role not in roles:
         roles.append(role)
     # Lists are unhashable, convert to tuple.
     roles = tuple(roles)
-    table = dynamo_resource.Table(USERS_TABLE)
-    result = table.put_item(
-        Item=user
-    )
-    if result:
-        return "OK"
-    else:
-        return "ERR"
+
+    response = save_user(user)
+    return response
 
 
 def save_user(user):
@@ -572,6 +565,9 @@ def has_role(user, role):
 
     if not is_valid_role(role):
         return "ERR"
+
+    if "roles" not in user:
+        return False
 
     roles = user["roles"]
 
@@ -620,6 +616,10 @@ def get_hreflang_from_url(url):
         hrefs = response.html.xpath("//link[@rel='alternate']/@href")
     except requests.exceptions.RequestException as e:
         logging.info(f"Error #822: {e}")
+        return hrefs
+    except Exception as ex:
+        print(f"Exception of type: {type(ex).__name__} occurred, args: {ex.args}")
+        logging.info(f"Error #823: {ex}")
         return hrefs
 
     # If the urls are relative, then append the base url as per the original.
