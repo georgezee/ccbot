@@ -180,7 +180,7 @@ def link_parse_string(url_string):
     """
     Parses link info from the Slack encoded form.
     >>> link_parse_string("<http://example.com|example.com>")
-    ('http://example.com')
+    'http://example.com'
     """
     url_link = None
     url_text = None
@@ -514,23 +514,6 @@ def command_user_info(ack, respond, command):
         respond("Invalid command. :cry:")
 
     return response
-
-
-def get_user_by_name(name):
-    init_dynamo()
-    result = None
-    user_id = "U0LPPP5RT"
-    try:
-        # Call the users.info method using the WebClient
-        result = dynamo_resource.users_info(
-            user=user_id
-        )
-        logging.info(result)
-
-    except Exception as e:
-        logging.error("Error fetching conversations: {}".format(e))
-
-    return result
 
 
 def get_domain(url):
