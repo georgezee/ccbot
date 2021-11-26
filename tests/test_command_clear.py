@@ -8,20 +8,6 @@ os.environ["USERS_TABLE"] = "test_users_table"
 os.environ["PURGE_TOPIC"] = ""  # Will be replaced by mocked name once created.
 
 
-def test_message_foo():
-
-    import app
-
-    def ack():
-        pass
-
-    def respond(someString):
-        pass
-
-    app.foo(ack, respond, None)
-    assert True
-
-
 def test_command_clear_x():
 
     import app
@@ -271,8 +257,11 @@ def test_get_hreflang(url, value):
     assert value in response
 
 
+
+@mock_dynamodb2
 def test_sns_dequeue_message():
     import app
+    mock_setup_users()
 
     context = None
     message = """{'data': ['https://rainfallnet.com/favicon.ico?v=2',
