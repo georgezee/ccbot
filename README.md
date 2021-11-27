@@ -6,7 +6,6 @@ to a CDN to purge the relevant items from the cache.
 
 ## Tech Stack:
 - Slack (for interacting with the bot)
-- Cloudflare (the CDN that receives the result of Slack requests)
 - Python (the back end programming language)
 - Bolt (the Slack framework for creating bots)
 - AWS API Gateway (for receiving requests as the bot)
@@ -16,9 +15,8 @@ to a CDN to purge the relevant items from the cache.
 ## Requirements:
 
 ### Accounts
-1. Cloudflare
-2. Slack Bot
-3. Amazon AWS
+1. Slack Bot
+2. Amazon AWS
 
 ### Packages
 - Serverless framework
@@ -28,14 +26,12 @@ to a CDN to purge the relevant items from the cache.
 - AWS CLI
 
 ## Setup Steps:
-1. Obtain Cloudflare API Token.
-2. Setup Slack Bot and get Bot token and Signing secret.
-3. Retrieve AWS Access key and Secret key.
-4. Install the relevant packages.
-5. Set relevant Environment variables:
-- CF_API_KEY
+1. Setup Slack Bot and get Bot token and Signing secret.
+2. Retrieve AWS Access key and Secret key.
+3. Install the relevant packages.
+4. Set relevant Environment variables:
 - SLACK_SIGNING_SECRET
 - SLACK_BOT_TOKEN
-6. Deploy serverless app.
-7. Copy API endpoint to Slack Bot endpoints.
+5. Deploy serverless app.
+6. Copy API endpoint to Slack Bot endpoints.
 

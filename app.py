@@ -1,5 +1,4 @@
 import os
-import CloudFlare
 import boto3
 import logging
 from slack_bolt import App
@@ -40,7 +39,7 @@ app = App(
 @app.message("hello")
 def message_hello(message, say):
     init_dynamo()
-    say(f"Hey there <@{message['user']}>!! :wave:")
+    say(f"Hey there <@{message['user']}>! :wave:")
     resp = dynamo_resource.put_item(
         TableName=USERS_TABLE,
         Item={
@@ -58,66 +57,8 @@ def message_whois(message, say):
     say(f"Name is {name}")
 
 
-
-
-@app.command("/clear-site")
-def command_clear(ack, respond, command):
-    ack()
-    # Clear the cache for the whole site.
-    cloudflare_key = os.environ.get("CF_API_KEY")
-    cf = CloudFlare.CloudFlare(token=cloudflare_key)
-    zones = cf.zones.get(params={'per_page': 50})
-    for zone in zones:
-        zone_name = zone['name']
-        zone_id = zone['id']
-        print(zone_id, zone_name)
-        cf.zones.purge_cache.post(
-            zone_id,
-            data={'purge_everything': True})
-    # Inform the user.
-    respond("Cache being cleared.!! :broom:")
-
-
-@app.command("/clear-url")
-def command_clear_url(ack, respond, command):
-    """ Slack command to clear the cache for a particular url . """
-
-    ack()
-    respond(" ... . ..")
-
-    pathParam = command["text"]
-    pathDict = pathParam.split(" ")
-
-    context = {
-        'channel_id': command["channel_id"],
-        'team_id': command["team_id"],
-        'user_id': command["user_id"],
-        'user_name': command["user_name"],
-        'command': command["command"],
-        'text': command["text"]
-    }
-
-    user_id = command["user_id"]
-
-    print("" + user_id + "|-|" + str(command))
-
-    if not check_permission(user_id, command["command"]):
-        respond("No permission to do this")
-        return "ERR"
-
-    logging.info(f"Clearing for paths: {pathParam}")
-    response = clear_url(pathDict, context=context)
-
-    if (response == "OK"):
-        respond(f"Cache cleared for {pathParam} ! :broom:")
-    else:
-        respond("Invalid command. :cry:")
-
-    return response
-
-
 @app.command("/clear-translations")
-def command_clear_url_translations(ack, respond, command):
+def command_sample_command(ack, respond, command):
     """ Slack command to clear the cache for a url and its translations. """
 
     ack()
@@ -142,7 +83,7 @@ def command_clear_url_translations(ack, respond, command):
         return "ERR"
 
     logging.info(f"Clearing for translated paths: {pathParam}")
-    response = clear_url(pathDict, clear_translations=True, context=context)
+    response = "OK" # Some action to be performed here.
 
     if (response == "OK"):
         respond(f"Cache cleared (with translations) for {pathParam} ! :broom:")
@@ -311,163 +252,6 @@ def command_remove_role(ack, respond, command):
     return response
 
 
-def get_zones(user):
-    if 'zones' not in user:
-        user['zones'] = list()
-
-    return user['zones']
-
-
-def allow_zone(user_id, zone):
-    """ Allow a specified zone for a user """
-    user = get_user(user_id)
-    if user == "ERR":
-        return "ERR"
-
-    zones = get_zones(user)
-    if zone not in zones:
-        zones.append(zone)
-    # Lists are unhashable, convert to tuple.
-    zones = tuple(zones)
-
-    return save_user(user)
-
-
-def disallow_zone(user, zone):
-    """
-    Remove a specified zone from the user object.
-    """
-    zones_list = list(user["zones"])
-    if zone in zones_list:
-        zones_list.remove(zone)
-    # Convert back to a tuple so it is hashable.
-    user["zones"] = tuple(zones_list)
-    # Save the user.
-    response = save_user(user)
-    return response
-
-
-def allowed_zone(user, zone):
-    """
-    Returns whether or not a user is allowed access to a particular zone.
-    """
-
-    if zone is None:
-        return True
-
-    if "zones" not in user:
-        return False
-
-    zones = user["zones"]
-
-    if zone in zones:
-        return True
-    else:
-        return False
-
-
-@app.command("/cc-allow-zone")
-def command_allow_zone(ack, respond, command):
-    """ Slack command to add permissions for a user to a particular zone. """
-
-    ack()
-    respond(" . ... .. .")
-
-    executing_user_id = command['user_id']
-    # Ensure the user has permissions to do this.
-    if not check_permission(executing_user_id, command["command"]):
-        respond("No permission to do this")
-        return "ERR"
-
-    params = command["text"].split(" ")
-    if (len(params) < 2):
-        respond("Invalid command. :cry: (#481)")
-        response = "ERR"
-        return response
-    target_user = params[0]
-    zone_url = params[1]
-
-    user_id, user_name = user_parse_string(target_user)
-    if (user_id == "ERR"):
-        respond("Invalid username. :cry: (#482)")
-        response = "ERR"
-        return response
-
-    zone = get_zone_id(zone_url)
-    if zone is None:
-        respond("Invalid zone. :cry: (#486)")
-        response = "ERR"
-        return response
-    logging.info(f"Allowing zone: {command['text']}")
-    response = allow_zone(user_id, zone)
-
-    if (response == "OK"):
-        respond(f"{zone} allowed for {user_name} ! :medal:")
-    else:
-        respond("Invalid command. :cry:")
-
-    return response
-
-
-@app.command("/cc-disallow-zone")
-def command_disallow_zone(ack, respond, command):
-    """ Slack command to disallow a zone from a user . """
-
-    ack()
-    respond(" .. .... .")
-    logging.info("#489")
-    logging.info(str(command))
-
-    executing_user_id = command['user_id']
-    # Ensure the user has permissions to do this.
-    if not check_permission(executing_user_id, command["command"]):
-        respond("No permission to do this")
-        return "ERR"
-
-    params = command["text"].split(" ")
-    if (len(params) < 2):
-        respond("Invalid command. :cry: (#481)")
-        response = "ERR"
-        return response
-    target_user_string = params[0]
-    zone_url = params[1]
-    user_id, user_name = user_parse_string(target_user_string)
-
-    if (user_id == "ERR"):
-        respond("Invalid username. :cry: (#482)")
-        response = "ERR"
-        return response
-
-    # Load the user object.
-    user = get_user(user_id)
-
-    if user == "ERR":
-        return "ERR"
-
-    # Check that the zone is valid.
-    zone = get_zone_id(zone_url)
-    if zone is None:
-        respond("Invalid zone. :cry: (#586)")
-        response = "ERR"
-        return response
-
-    # Check that the zone is present on the user.
-    if allowed_zone(user, zone):
-        logging.info(f"Removing zone: {command['text']}")
-        response = disallow_zone(user, zone)
-    else:
-        respond("No matching user + zone found. :cry: (#584)")
-        response = "ERR"
-        return response
-
-    if (response == "OK"):
-        respond(f"{zone} disallowed for {user_name} ! :medal:")
-    else:
-        respond("Invalid command. :cry:")
-
-    return response
-
-
 @app.command("/cc-user-info")
 def command_user_info(ack, respond, command):
     """ Slack command to retrieve the information for a specific user. """
@@ -500,11 +284,6 @@ def command_user_info(ack, respond, command):
         user_info_string += f"Roles: {' '.join(user['roles'])} \n"
     else:
         user_info_string += "Roles: none \n"
-    if 'zones' in user:
-        user_info_string += f"Zones allowed: {' '.join(user['zones'])} \n"
-        # user_info_string += f"Zones allowed: {' '.join([get_zone_name(zone) for zone in user['zones']])} \n"
-    else:
-        user_info_string += "Zones allowed: none \n"
     # user_info_string += "Last used:  \n"
     response = "OK"
 
@@ -530,62 +309,8 @@ def get_domain(url):
     return f"{urlObj.domain}.{urlObj.suffix}"
 
 
-def get_zone_id(path):
-    """ Returns the matching Zone ID for a URL"""
-    domain = get_domain(path)
 
-    # Todo: Cache zone list for future calls.
-    cloudflare_key = os.environ.get("CF_API_KEY")
-    cf = CloudFlare.CloudFlare(token=cloudflare_key)
-    zones = cf.zones.get(params={'per_page': 50})
-    for zone in zones:
-        logging.debug(f"available zone: {zone['id']}:{zone['name']} || {domain}")
-        if domain == zone['name']:
-            return zone['id']
-    return None
-
-
-def get_zone_name(zone_id):
-    """ Returns the matching Zone name for a Zone ID"""
-
-    # Todo: Cache zone list for future calls.
-    cloudflare_key = os.environ.get("CF_API_KEY")
-    cf = CloudFlare.CloudFlare(token=cloudflare_key)
-    zones = cf.zones.get(params={'per_page': 50})
-    for zone in zones:
-        logging.debug(f"zone name: {zone['id']}:{zone['name']}")
-        if zone_id == zone['id']:
-            return zone['name']
-    return None
-
-
-def validate_paths(pathList):
-
-    """
-    Validate a list of paths that has been passed.
-    Separates invalid items.
-
-    """
-
-    newList = []
-    invalidList = []
-
-    # Checks that the domain of all urls match the first one.
-    urlObj = tldextract.extract(pathList[0])
-    firstDomain = f"{urlObj.domain}.{urlObj.suffix}"
-
-    for path in pathList:
-        urlObj = tldextract.extract(path)
-        domain = f"{urlObj.domain}.{urlObj.suffix}"
-        if domain == firstDomain:
-            newList.append(path)
-        else:
-            invalidList.append(path)
-
-    return newList, invalidList
-
-
-def enqueue_clear_url(url_list, context=None):
+def enqueue_task(url_list, context=None):
 
     init_sns()
     topic_arn = os.environ.get("PURGE_TOPIC")
@@ -606,7 +331,7 @@ def enqueue_clear_url(url_list, context=None):
         return "ERR"
 
 
-def dequeue_clear_url(event, context):
+def dequeue_task(event, context):
     import ast
 
     logging.info(f"Item dequeued {event}")
@@ -617,7 +342,8 @@ def dequeue_clear_url(event, context):
     path_list = message_object["data"]
     context = message_object["context"]
 
-    clear_url(path_list, context=context)
+    # Pass the tasks information on to the relevant function.
+    # clear_url(path_list, context=context)
     return "OK"
 
 
@@ -645,50 +371,6 @@ def message_user(text, context):
     )
 
 
-def clear_url(pathList, clear_translations=False, context=None):
-
-    path = pathList[0]
-    zone_id = get_zone_id(path)
-
-    # If requested, we also enqueue the linked translations of the page.
-    if clear_translations:
-        for path in pathList:
-            lang_list = get_hreflang_from_url(path)
-            if len(lang_list) > 0:
-                enqueue_clear_url(lang_list, context)
-
-    # Check the paths are valid before proceeding to purge the cache.
-    pathList, errorList = validate_paths(pathList)
-    if zone_id and (len(pathList) > 0):
-        # Check that the user has access to a particular zone.
-        logging.info(f"Checking for {context['user_id']} with context {context['command']} in zone {zone_id}")
-        if not check_permission(context["user_id"], context["command"], zone_id):
-            message_user("You don't have permission to clear caches for this site, speak to a CCBot admin.", context)
-            logging.info(f"No permission for {context['user_id']} with context {context['command']} in zone {zone_id}")
-            return "ERR"
-
-        cloudflare_key = os.environ.get("CF_API_KEY")
-        cf = CloudFlare.CloudFlare(token=cloudflare_key)
-        cf.zones.purge_cache.post(
-            zone_id,
-            data={'files': pathList})
-        # Inform the user.
-        if (len(errorList) > 0):
-            message_channel(f"Partial urls cleared: {pathList}", context)
-            return "PARTIAL"
-        else:
-            message_channel(f"Urls cleared: {pathList}", context)
-            return "OK"
-    else:
-        message_channel(f"Couldn't clear urls: {pathList}", context)
-        return "ERR"
-
-
-SlackRequestHandler.clear_all_log_handlers()
-logging.basicConfig(format="%(asctime)s %(message)s", level=logging.DEBUG)
-logging.getLogger().addHandler(logging.StreamHandler())
-
-
 def get_user(user_id):
     init_dynamo()
     table = dynamo_resource.Table(USERS_TABLE)
@@ -705,8 +387,6 @@ def get_user(user_id):
     # Check and initialize additional properties if not present.
     if 'roles' not in item:
         item['roles'] = list()
-    if 'zones' not in item:
-        item['zones'] = list()
 
     return item
 
@@ -778,7 +458,7 @@ def has_role(user, role):
         return False
 
 
-def check_permission(user_id, command, zone=None):
+def check_permission(user_id, command):
     """
     Check if a particular user has permission to run a particular command.
     """
@@ -795,44 +475,10 @@ def check_permission(user_id, command, zone=None):
     if command == "/clear-url":
         if has_role(user, 'basic'):
             # Check that the user has access to this site.
-            if allowed_zone(user, zone):
-                return True
+            return True
 
     # If we've reached this point without granting access, access is denied.
     return False
-
-
-def get_hreflang_from_url(url):
-    """ Fetches the hreflang tags from a particular url."""
-
-    import requests
-    from requests_html import HTMLSession
-
-    hrefs = list()
-
-    try:
-        session = HTMLSession()
-        response = session.get(url)
-        # Look for specific tags, returning the href portion.
-        hrefs = response.html.xpath("//link[@rel='alternate']/@href")
-    except requests.exceptions.RequestException as e:
-        logging.info(f"Error #822: {e}")
-        return hrefs
-    except Exception as ex:
-        print(f"Exception of type: {type(ex).__name__} occurred, args: {ex.args}")
-        logging.info(f"Error #823: {ex}")
-        return hrefs
-
-    # If the urls are relative, then append the base url as per the original.
-    for index, href in enumerate(hrefs):
-        if "http" not in href:
-            # Get base url
-            from urllib.parse import urlparse
-            parsed_uri = urlparse(url)
-            domain = '{uri.scheme}://{uri.netloc}'.format(uri=parsed_uri)
-            hrefs[index] = domain + href
-
-    return hrefs
 
 
 def is_sns_event(event):
@@ -848,7 +494,7 @@ def handler(event, context):
 
     # If this request came via SNS Purge topic, direct to appropriate dequeueing function.
     if is_sns_event(event):
-        return dequeue_clear_url(event, context)
+        return dequeue_task(event, context)
 
     # Otherwise this is a request via the API (from a Slack message received).
     slack_handler = SlackRequestHandler(app=app)
